@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -25,7 +26,8 @@ import (
 type ChannelID string
 
 const (
-	InfoChannel = "503169629493919744"
+	GeneralChannel ChannelID = "409367030043639811"
+	InfoChannel              = "503169629493919744"
 )
 
 type Secrets struct {
@@ -54,17 +56,34 @@ func main() {
 		log.Fatalf("Error logging in: %v", err)
 	}
 	discord.Token = s.Token
-	discord.AddHandler(infoHandler)
+	discord.AddHandler(handler)
 	if err = discord.Open(); err != nil {
 		log.Fatalf("Error opening discord: %v", err)
 	}
+
+	t := time.NewTicker(3 * time.Second)
+	for {
+		select {
+		case <-t.C:
+			discord.ChannelMessageSend(InfoChannel, time.Now().Format(time.RFC3339))
+		}
+	}
+
 	<-done
 }
 
-func infoHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.Bot || m.ChannelID != InfoChannel {
+func handler(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if m.Author.Bot {
 		return
 	}
+
+	switch m.ChannelID {
+	case InfoChannel:
+		infoHandler(s, m)
+	}
+}
+
+func infoHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
 	c, err := s.State.Channel(m.ChannelID)
 	if err != nil {
 		log.Printf("Error in handler: %v", err)
